@@ -1,72 +1,114 @@
 from flask import Flask, render_template_string, request, redirect
 import json
 import os
-from collections import defaultdict
 
 app = Flask(__name__)
 
-# === Core Data Setup ===
+DATA_FILE = "projects.json"
 
-wind_turbine_count = 2
-wind_trap_count = 2
-filter_count = 168
-lubricant_count = 168
+# === Default Project Data (Base Sustainability) ===
+def get_base_sustainability():
+    return {
+        "steel_ingot": {"needed": 774, "have": 0},
+        "cobalt_paste": {"needed": 130, "have": 0},
+        "silicone_block": {"needed": 228, "have": 0},
+        "plant_fiber": {"needed": 840, "have": 0},
+        "fuel_cell": {"needed": 336, "have": 0},
+        "water": {"needed": 70602, "have": 0},
+        "carbon_ore": {"needed": 3096, "have": 0},
+        "iron_ingot": {"needed": 774, "have": 0},
+        "iron_ore": {"needed": 3870, "have": 0},
+        "flour_sand": {"needed": 1140, "have": 0},
+        "erythrite_crystal": {"needed": 390, "have": 0}
+    }
 
-req = defaultdict(int)
-req['steel_ingot'] += 45 * wind_turbine_count + 90 * wind_trap_count + 3 * filter_count
-req['cobalt_paste'] += 65 * wind_turbine_count
-req['silicone_block'] += 30 * wind_trap_count + 1 * lubricant_count
-req['plant_fiber'] += 5 * filter_count
-req['fuel_cell'] += 2 * lubricant_count
-req['water'] += (60 * filter_count + 4 * lubricant_count)
+def load_projects():
+    if os.path.exists(DATA_FILE):
+        with open(DATA_FILE, "r") as f:
+            return json.load(f)
+    return {"Base Sustainability": get_base_sustainability()}
 
-req['water'] += 50 * req['steel_ingot'] + 25 * req['iron_ingot']
-req['carbon_ore'] += 4 * req['steel_ingot']
-req['iron_ingot'] += 1 * req['steel_ingot']
-req['iron_ore'] += 5 * req['iron_ingot']
-req['water'] += 50 * req['silicone_block']
-req['flour_sand'] += 5 * req['silicone_block']
-req['water'] += 75 * req['cobalt_paste']
-req['erythrite_crystal'] += 3 * req['cobalt_paste']
-
-progress_file = "progress.json"
-if os.path.exists(progress_file):
-    with open(progress_file, "r") as f:
-        collected = json.load(f)
-else:
-    collected = {res: 0 for res in req}
+def save_projects(projects):
+    with open(DATA_FILE, "w") as f:
+        json.dump(projects, f, indent=2)
 
 @app.route("/", methods=["GET", "POST"])
-def tracker():
-    global collected
-    if request.method == "POST":
-        for res in req:
-            val = request.form.get(res)
-            try:
-                collected[res] = int(val)
-            except:
-                collected[res] = 0
-        with open(progress_file, "w") as f:
-            json.dump(collected, f)
+def index():
+    projects = load_projects()
+    selected = request.args.get("project", "Base Sustainability")
+
+    # --- Handle Deletion of a project ---
+    delete_project = request.args.get("delete_project")
+    if delete_project and delete_project in projects and delete_project != "Base Sustainability":
+        projects.pop(delete_project)
+        save_projects(projects)
         return redirect("/")
 
+    # --- Handle Forms ---
+    if request.method == "POST":
+        # Create new project
+        if "new_project" in request.form:
+            new_name = request.form.get("new_project", "").strip()
+            if new_name and new_name not in projects:
+                projects[new_name] = {}
+                save_projects(projects)
+            return redirect(f"/?project={new_name}" if new_name else "/")
+
+        # Add new item
+        elif "add_item" in request.form:
+            item = request.form.get("item", "").strip()
+            needed = request.form.get("needed", "").strip()
+            if item and needed.isdigit():
+                projects[selected][item] = {"needed": int(needed), "have": 0}
+                save_projects(projects)
+            return redirect(f"/?project={selected}")
+
+        # Delete item from project
+        elif "delete_item" in request.form:
+            del_key = request.form.get("delete_item")
+            if del_key in projects[selected]:
+                del projects[selected][del_key]
+                save_projects(projects)
+            return redirect(f"/?project={selected}")
+
+        # Save updated resource counts
+        else:
+            for item in projects[selected]:
+                try:
+                    projects[selected][item]["have"] = int(request.form.get(item, 0))
+                except:
+                    projects[selected][item]["have"] = 0
+            save_projects(projects)
+            return redirect(f"/?project={selected}")
+
+    # --- Build UI ---
     table_rows = ""
-    for res in sorted(req):
-        need = req[res]
-        have = collected.get(res, 0)
+    for item in sorted(projects[selected]):
+        need = projects[selected][item]["needed"]
+        have = projects[selected][item]["have"]
         left = max(need - have, 0)
         table_rows += f"""
         <tr>
-            <td>{res}</td>
+            <td>{item}</td>
             <td>{need}</td>
-            <td><input type='number' name='{res}' value='{have}'/></td>
+            <td><input type='number' name='{item}' value='{have}' /></td>
             <td>{left}</td>
+            <td><button name='delete_item' value='{item}'>❌</button></td>
         </tr>"""
+
+    project_tabs = ""
+    for p in projects:
+        is_selected = (p == selected)
+        project_tabs += f"<span style='margin-right:10px;'>"
+        project_tabs += f"<a href='/?project={p}' style='color:{'#fff' if is_selected else '#aaa'};'>{p}</a>"
+        if p != "Base Sustainability":
+            project_tabs += f" <a href='/?delete_project={p}' style='color:red;'>❌</a>"
+        project_tabs += "</span>"
 
     return render_template_string(f"""
 <html>
 <head>
-    <title>Dune Resource Tracker</title>
+    <title>Dune Tracker</title>
     <style>
         body {{
             background-color: #1e1e1e;
@@ -82,32 +124,48 @@ def tracker():
             border: 1px solid #555;
             padding: 10px;
         }}
-        input[type='number'] {{
+        input[type='number'], input[type='text'] {{
             background-color: #2c2c2c;
             color: #e0e0e0;
             border: 1px solid #444;
         }}
-        input[type='submit'] {{
+        input[type='submit'], button {{
             background-color: #444;
             color: #fff;
-            padding: 10px 20px;
+            padding: 6px 12px;
             border: none;
-            margin-top: 10px;
             cursor: pointer;
         }}
-        input[type='submit']:hover {{
+        input[type='submit']:hover, button:hover {{
             background-color: #666;
+        }}
+        a {{
+            text-decoration: none;
         }}
     </style>
 </head>
 <body>
     <h2>Dune Awakening Crafting Tracker</h2>
+    <div style="margin-bottom: 20px;">
+        {project_tabs}
+    </div>
     <form method="POST">
         <table>
-            <tr><th>Resource</th><th>Needed</th><th>Have</th><th>Left</th></tr>
+            <tr><th>Resource</th><th>Needed</th><th>Have</th><th>Left</th><th>Remove</th></tr>
             {table_rows}
         </table><br/>
         <input type="submit" value="Save Progress"/>
+    </form>
+    <hr/>
+    <form method="POST">
+        <input type="text" name="item" placeholder="New Resource Name"/>
+        <input type="number" name="needed" placeholder="How many needed?" />
+        <input type="submit" name="add_item" value="Add Item"/>
+    </form>
+    <hr/>
+    <form method="POST">
+        <input type="text" name="new_project" placeholder="New Project Name"/>
+        <input type="submit" value="Create New Project"/>
     </form>
 </body>
 </html>

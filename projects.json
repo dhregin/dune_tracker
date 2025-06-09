@@ -1,0 +1,48 @@
+{
+  "Base Sustainability": {
+    "steel_ingot": {
+      "needed": 774,
+      "have": 0
+    },
+    "cobalt_paste": {
+      "needed": 130,
+      "have": 0
+    },
+    "silicone_block": {
+      "needed": 228,
+      "have": 0
+    },
+    "plant_fiber": {
+      "needed": 840,
+      "have": 0
+    },
+    "fuel_cell": {
+      "needed": 336,
+      "have": 0
+    },
+    "water": {
+      "needed": 70602,
+      "have": 0
+    },
+    "carbon_ore": {
+      "needed": 3096,
+      "have": 0
+    },
+    "iron_ingot": {
+      "needed": 774,
+      "have": 0
+    },
+    "iron_ore": {
+      "needed": 3870,
+      "have": 0
+    },
+    "flour_sand": {
+      "needed": 1140,
+      "have": 0
+    },
+    "erythrite_crystal": {
+      "needed": 390,
+      "have": 0
+    }
+  }
+}
