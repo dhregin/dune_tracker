@@ -180,6 +180,12 @@ def index():
     </form>
     <hr/>
     <form method="POST">
+    <input type="text" name="item" placeholder="New Resource Name"/>
+    <input type="number" name="needed" placeholder="How many needed?" />
+    <input type="submit" name="add_item" value="Add Item"/>
+    </form>
+    <hr/>
+    <form method="POST">
         <input type="text" name="new_project" placeholder="New Project Name"/>
         <input type="submit" value="Create New Project"/>
     </form>
