@@ -1,4 +1,4 @@
-## Dune Awakening: Colalborative Crafting Tracker
+## Dune Awakening: Collaborative Crafting Tracker
 
 A web-based resource tracker for Dune: Awakening, built with Flask and hosted on [Render](https://render.com). 
 Backend save-state is stored on AWS S3, so your data persists across sessions, even when using the free Render Hobby tier (which spins down after inactivity).
