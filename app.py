@@ -99,10 +99,9 @@ def index():
             for item in projects[selected]:
                 try:
                     projects[selected][item]["have"] = int(request.form.get(item, 0))
+                    projects[selected][item]["needed"] = int(request.form.get(f"needed_{item}", projects[selected][item]["needed"]))
                 except:
-                    projects[selected][item]["have"] = 0
-            save_projects(projects)
-            return redirect(f"/?project={selected}")
+                    pass
 
     # --- Build UI ---
     table_rows = ""
@@ -111,11 +110,11 @@ def index():
         have = projects[selected][item]["have"]
         left = max(need - have, 0)
         table_rows += f"""
-        <tr>
+        <tr class='resource-row' data-name='{item}'>
             <td>{item}</td>
-            <td>{need}</td>
-            <td><input type='number' name='{item}' value='{have}' /></td>
-            <td>{left}</td>
+            <td><input type='number' class='resource-input needed-input' data-type='needed' name='needed_{item}' value='{need}' /></td>
+            <td><input type='number' class='resource-input have-input' data-type='have' name='{item}' value='{have}' /></td>
+            <td id='resource-display-{item}'>{left}</td>
             <td><button name='delete_item' value='{item}'>❌</button></td>
         </tr>"""
 
@@ -181,15 +180,29 @@ def index():
     </form>
     <hr/>
     <form method="POST">
-        <input type="text" name="item" placeholder="New Resource Name"/>
-        <input type="number" name="needed" placeholder="How many needed?" />
-        <input type="submit" name="add_item" value="Add Item"/>
-    </form>
-    <hr/>
-    <form method="POST">
         <input type="text" name="new_project" placeholder="New Project Name"/>
         <input type="submit" value="Create New Project"/>
     </form>
+
+    <script>
+        window.addEventListener("DOMContentLoaded", function () {{
+            document.querySelectorAll('.resource-input').forEach(input => {{
+                input.addEventListener('input', () => {{
+                    const row = input.closest('.resource-row');
+                    const name = row.getAttribute('data-name');
+
+                    const haveInput = row.querySelector('.have-input');
+                    const neededInput = row.querySelector('.needed-input');
+
+                    const have = parseInt(haveInput.value) || 0;
+                    const needed = parseInt(neededInput.value) || 0;
+
+                    const display = document.querySelector(`#resource-display-${{name}}`);
+                    if (display) display.textContent = Math.max(needed - have, 0);
+                }});
+            }});
+        }});
+    </script>
 </body>
 </html>
 """)
