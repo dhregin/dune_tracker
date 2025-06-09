@@ -1,6 +1,15 @@
 from flask import Flask, render_template_string, request, redirect
 import json
 import os
+import boto3
+from botocore.exceptions import ClientError
+DATA_FILE = "projects.json"
+S3_BUCKET = os.environ.get("S3_BUCKET_NAME", "")
+S3_KEY = "projects.json"
+USE_S3 = os.environ.get("USE_S3", "true").lower() == "true"
+
+
+s3_client = boto3.client("s3")
 
 app = Flask(__name__)
 
@@ -23,14 +32,28 @@ def get_base_sustainability():
     }
 
 def load_projects():
-    if os.path.exists(DATA_FILE):
-        with open(DATA_FILE, "r") as f:
-            return json.load(f)
-    return {"Base Sustainability": get_base_sustainability()}
+    if USE_S3:
+        try:
+            obj = s3_client.get_object(Bucket=S3_BUCKET, Key=S3_KEY)
+            return json.loads(obj['Body'].read())
+        except ClientError as e:
+            print("S3 read error:", e)
+            return {"Base Sustainability": get_base_sustainability()}
+    else:
+        if os.path.exists(DATA_FILE):
+            with open(DATA_FILE, "r") as f:
+                return json.load(f)
+        return {"Base Sustainability": get_base_sustainability()}
 
 def save_projects(projects):
-    with open(DATA_FILE, "w") as f:
-        json.dump(projects, f, indent=2)
+    if USE_S3:
+        try:
+            s3_client.put_object(Bucket=S3_BUCKET, Key=S3_KEY, Body=json.dumps(projects, indent=2))
+        except ClientError as e:
+            print("S3 write error:", e)
+    else:
+        with open(DATA_FILE, "w") as f:
+            json.dump(projects, f, indent=2)
 
 @app.route("/", methods=["GET", "POST"])
 def index():
